@@ -1,0 +1,19 @@
+{
+  "name": "lumora-dental-studio",
+  "version": "1.0.0",
+  "description": "Premium luxury dental clinic website with liquid glass UI for Lumora Dental Studio",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "luxury",
+    "dental",
+    "liquid-glass",
+    "aesthetic-dentistry",
+    "mayfair"
+  ],
+  "author": "Lumora Creative Team",
+  "license": "UNLICENSED"
+}
