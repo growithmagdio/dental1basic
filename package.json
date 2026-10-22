@@ -2,10 +2,10 @@
   "name": "lumora-dental-studio",
   "version": "1.0.0",
   "description": "Premium luxury dental clinic website with liquid glass UI for Lumora Dental Studio",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "build": "node build.js",
+    "dev": "node server.js",
+    "start": "node server.js"
   },
   "keywords": [
     "luxury",

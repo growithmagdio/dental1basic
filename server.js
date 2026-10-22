@@ -22,7 +22,7 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf'
 };
 
-const server = http.createServer((req, res) => {
+function requestHandler(req, res) {
   const parsedUrl = url.parse(req.url);
   let pathname = decodeURIComponent(parsedUrl.pathname);
 
@@ -33,45 +33,59 @@ const server = http.createServer((req, res) => {
 
   // Prevent directory traversal
   const safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
-  let filePath = path.join(ROOT_DIR, safePath);
+  const cleanSubPath = safePath.replace(/^(\\|\/)+/, '');
+  const strippedPublic = cleanSubPath.replace(/^public[\/\\]/, '');
 
-  // If file doesn't exist and doesn't have an extension, try appending .html
-  if (!fs.existsSync(filePath) && !path.extname(filePath)) {
-    if (fs.existsSync(filePath + '.html')) {
-      filePath = filePath + '.html';
-    }
+  // Try candidate file paths in priority order
+  const candidates = [
+    path.join(ROOT_DIR, cleanSubPath),
+    path.join(ROOT_DIR, strippedPublic),
+    path.join(ROOT_DIR, 'public', cleanSubPath),
+    path.join(ROOT_DIR, 'public', strippedPublic),
+    path.join(ROOT_DIR, cleanSubPath + '.html'),
+    path.join(ROOT_DIR, strippedPublic + '.html')
+  ];
+
+  let resolvedFile = null;
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        resolvedFile = candidate;
+        break;
+      }
+    } catch (_) {}
   }
 
-  fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-      res.end(`<!DOCTYPE html>
+  if (!resolvedFile) {
+    res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!DOCTYPE html>
 <html>
 <head><title>404 Not Found | Lumora Dental Studio</title><link rel="stylesheet" href="/css/styles.css"></head>
-<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:var(--color-warm-ivory);">
+<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:var(--color-warm-ivory);font-family:sans-serif;padding:2rem;">
   <div>
-    <h1 style="font-family:var(--font-serif);font-size:3rem;color:var(--color-deep-navy);">404 — Page Not Found</h1>
-    <p style="color:var(--color-muted-text);margin:1rem 0 2rem 0;">The requested sanctuary page does not exist.</p>
-    <a href="/" class="btn btn-primary">Return to Lumora Home</a>
+    <h1 style="font-size:2.5rem;color:#172B42;margin-bottom:1rem;">404 — Page Not Found</h1>
+    <p style="color:#69737D;margin-bottom:2rem;">The requested sanctuary page does not exist.</p>
+    <a href="/" style="display:inline-block;padding:0.75rem 1.5rem;background:#172B42;color:#FFF;text-decoration:none;border-radius:9999px;">Return to Lumora Home</a>
   </div>
 </body>
 </html>`);
-      return;
-    }
+    return;
+  }
 
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  const ext = path.extname(resolvedFile).toLowerCase();
+  const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Cache-Control': 'no-cache',
-      'X-Content-Type-Options': 'nosniff'
-    });
-
-    const readStream = fs.createReadStream(filePath);
-    readStream.pipe(res);
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+    'X-Content-Type-Options': 'nosniff'
   });
-});
+
+  const readStream = fs.createReadStream(resolvedFile);
+  readStream.pipe(res);
+}
+
+const server = http.createServer(requestHandler);
 
 const HOST = '0.0.0.0';
 
@@ -96,4 +110,10 @@ server.on('error', (err) => {
   }
 });
 
-startServer(PORT);
+// Start server if directly executed
+if (require.main === module) {
+  startServer(PORT);
+}
+
+// Export for serverless environments (e.g. Vercel)
+module.exports = server;
